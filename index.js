@@ -21,6 +21,19 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const db = client.db('yumNet-db')
+    const yumNetCollection = db.collection('Reviewer')
+
+    //find
+    //findOne
+
+    app.get('/Reviewer', async (req, res)=>{
+
+      const result = await yumNetCollection.find().toArray()
+
+      res.send(result)
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
