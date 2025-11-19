@@ -1,57 +1,129 @@
-const express = require('express')
-const cors = require('cors')
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const app = express()
-const port = 3000
+const express = require('express');
+const cors = require('cors');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
+const app = express();
+const port = 3000;
 
+app.use(cors());
+app.use(express.json());
 
+// MongoDB Connection
 const uri = "mongodb+srv://yumNetUser:QUUh3Kkqh9pHXzdW@cluster0.h83f0sw.mongodb.net/?appName=Cluster0";
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
 });
 
 async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    try {
+        await client.connect();
 
-    const db = client.db('yumNet-db')
-    const yumNetCollection = db.collection('Reviewer')
+        const db = client.db("yumNet-db");
+        const yumNetCollection = db.collection("Reviewer");
 
-    //find
-    //findOne
+        console.log("MongoDB Connected Successfully!");
 
-    app.get('/Reviewer', async (req, res)=>{
+        // ================================
+        // GET ALL REVIEWS
+        // ================================
+        app.get('/Reviewer', async (req, res) => {
+            const result = await yumNetCollection.find().toArray();
+            res.send(result);
+        });
 
-      const result = await yumNetCollection.find().toArray()
+        // ================================
+        // GET SINGLE REVIEW
+        // ================================
+        app.get('/review/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const review = await yumNetCollection.findOne({ _id: new ObjectId(id) });
 
-      res.send(result)
-    })
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
-  }
+                if (!review) {
+                    return res.status(404).send({ message: "Review not found" });
+                }
+
+                res.send(review);
+            } catch (error) {
+                res.status(500).send({ message: "Error fetching review", error: error.message });
+            }
+        });
+
+        // ================================
+        // POST — ADD REVIEW
+        // ================================
+        app.post('/reviews', async (req, res) => {
+            try {
+                const newReview = req.body;
+                const result = await yumNetCollection.insertOne(newReview);
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to add review", error: error.message });
+            }
+        });
+
+        // ================================
+        // GET — MY REVIEWS (filter by email)
+        // ================================
+        app.get('/my-reviews', async (req, res) => {
+            try {
+                const email = req.query.email;
+
+                const result = await yumNetCollection.find({ user_email: email }).toArray();
+                res.send(result);
+
+            } catch (error) {
+                res.status(500).send({ message: "Error loading user reviews", error: error.message });
+            }
+        });
+
+        // ================================
+        // DELETE REVIEW
+        // ================================
+        app.delete('/review/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await yumNetCollection.deleteOne({ _id: new ObjectId(id) });
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to delete review", error: error.message });
+            }
+        });
+
+        // ================================
+        // UPDATE REVIEW (EDIT)
+        // ================================
+        app.put('/review/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const updatedData = req.body;
+
+                const result = await yumNetCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updatedData }
+                );
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to update review", error: error.message });
+            }
+        });
+
+    } finally {}
 }
-run().catch(console.dir);
 
+run().catch(console.error);
 
-app.use(cors())
-app.use(express.json())
-
+// Root
 app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
+    res.send("YumNet API is running");
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+    console.log(`Server running on port ${port}`);
+});
